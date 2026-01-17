@@ -11,3 +11,12 @@ def ply_read(path):
     filtered_pcd = pcd.select_by_index(np.where(mask)[0])
 
     return filtered_pcd
+
+def  filter_outliers(pcd):
+
+    # 离群点过滤
+    cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+    filtered_pcd = pcd.select_by_index(ind)
+    # o3d.visualization.draw([filtered_pcd])
+
+    return filtered_pcd
