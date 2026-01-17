@@ -14,7 +14,7 @@ def dbscan_clustering(pcd):
     colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
     colors[labels < 0] = 0
     pcd.colors = o3d.utility.Vector3dVector(colors[:, :3])
-    o3d.visualization.draw([pcd])
+    # o3d.visualization.draw([pcd])
 
     # 统计每个聚类的点数，筛选点数最多的前两类
     unique_labels = np.unique(labels[labels >= 0])
