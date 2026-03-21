@@ -11,15 +11,10 @@ def  filter_outliers(pcd,nb_neighbors=20,std_ratio=2):
 
 if __name__ == "__main__":
 
-    pcd = o3d.io.read_point_cloud(r"E:\3DProject\testdata\kongjian\main_object_fixed\merged.ply")   # 读取点云
+    pcd = o3d.io.read_point_cloud(r"E:\3DProject\testdata\bunny\data1\merged.ply")   # 读取点云
 
 
-    pcd = pcd.voxel_down_sample(voxel_size=5)
-    pcd = filter_outliers(pcd)
-    pcd = filter_outliers(pcd)
-    pcd = pcd.voxel_down_sample(voxel_size=5)
-    pcd = pcd.voxel_down_sample(voxel_size=5)
-    pcd = filter_outliers(pcd,30,3)
+    pcd = pcd.voxel_down_sample(voxel_size=0.002)
 
     o3d.visualization.draw_geometries([pcd])
-    o3d.io.write_point_cloud(r"E:\3DProject\testdata\kongjian\main_object_fixed\merged_filtered.ply",pcd)
+    o3d.io.write_point_cloud(r"E:\3DProject\testdata\bunny\data1\merged_fixed.ply",pcd)

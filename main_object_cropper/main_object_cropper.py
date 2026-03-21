@@ -9,8 +9,8 @@ from point_cloud_correct_flying_pixels import correct_flying_pixels
 
 if __name__ == "__main__":
 
-    input_dir = "E:/3DProject/testdata/kongjian/"
-    output_dir = "E:/3DProject/testdata/kongjian/main_object_fixed/"
+    input_dir = r"E:\3DProject\D2"
+    output_dir = r"E:\3DProject\D2\main_object_fixed"
     os.makedirs(output_dir, exist_ok=True)
 
     for fname in os.listdir(input_dir):

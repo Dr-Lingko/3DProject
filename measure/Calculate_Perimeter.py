@@ -156,7 +156,7 @@ class PointCloudPlaneSection:
 
 if __name__ == "__main__":
     # ==================== 替换为你的点云路径 ====================
-    PCD_PATH = r"C:/Users/DO/Desktop/大创/3DProject/testdata/bunny/data1/merged.ply"
+    PCD_PATH = r"E:\3DProject\D2\main_object_fixed\super_sqz.ply"
 
     # 异常捕获（友好提示）
     try:

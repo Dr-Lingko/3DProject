@@ -36,7 +36,7 @@ def prepare_dataset(dir1,dir2,voxel_size):
 
 
 if __name__ == "__main__": # 测试用
-    voxel_size = 0.05
-    dir1 = r"E:\3DProject\testdata\kongjian\main_object\kongjian1_main_object.ply"
-    dir2 = r"E:\3DProject\testdata\kongjian\main_object\kongjian3_main_object.ply"
+    voxel_size = 4
+    dir1 = r"E:\3DProject\D1\main_object_fixed\1.ply"
+    dir2 = r"E:\3DProject\D1\main_object_fixed\2.ply"
     prepare_dataset(dir1,dir2,voxel_size)
