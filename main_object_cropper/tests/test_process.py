@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from process import remove_outliers, voxel_downsample
+from point_cloud_processing import remove_outliers, voxel_downsample
 
 
 def make_cloud_with_outlier() -> o3d.geometry.PointCloud:
