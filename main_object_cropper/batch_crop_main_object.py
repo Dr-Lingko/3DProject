@@ -11,6 +11,8 @@ if __name__ == "__main__":
 
     input_dir = r"E:\3DProject\D2"
     output_dir = r"E:\3DProject\D2\main_object_fixed"
+    crop = True
+    
     os.makedirs(output_dir, exist_ok=True)
 
     for fname in os.listdir(input_dir):
@@ -20,7 +22,11 @@ if __name__ == "__main__":
             pcd = ply_read.ply_read(os.path.join(input_dir, fname))    # 读取点云
             pcd = correct_flying_pixels(pcd,80)    # 飘点修正
             pcd_filtered = ply_read.filter_outliers(pcd)    # 离群点过滤
-            pcd_without_plane = plane_segmentation(pcd_filtered)    # 平面分割，去除地面
+            if crop:
+                pcd_without_plane = plane_segmentation(pcd_filtered)    # 平面分割，去除地面
+            else:
+                pcd_without_plane = pcd_filtered
+                
             main_object = dbscan_clustering(pcd_without_plane)    # DBSCAN聚类,提取主体
             down_main_object = main_object.voxel_down_sample(voxel_size=3)
             down_main_object.paint_uniform_color([0, 1, 0])
