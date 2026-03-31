@@ -7,11 +7,18 @@ from point_cloud_plane_segmentation import plane_segmentation
 from point_cloud_dbscan_clustering import dbscan_clustering
 from point_cloud_correct_flying_pixels import correct_flying_pixels
 
-if __name__ == "__main__":
+def  filter_outliers(pcd, nb_neighbors=20, std_ratio=2):
 
-    input_dir = r"E:\3DProject\D2"
-    output_dir = r"E:\3DProject\D2\main_object_fixed"
-    crop = True
+    # 离群点过滤
+    cl, ind = pcd.remove_statistical_outlier(nb_neighbors=nb_neighbors, std_ratio=std_ratio)
+    filtered_pcd = pcd.select_by_index(ind)
+    # o3d.visualization.draw([filtered_pcd])
+    return filtered_pcd
+
+def main():
+    input_dir = r"E:\点云测量\P1B"
+    output_dir = r"E:\点云测量\P1B\filtered"
+    crop = False  # 是否进行平面分割和DBSCAN聚类提取主体，False则只进行飘点修正和离群点过滤
     
     os.makedirs(output_dir, exist_ok=True)
 
@@ -20,15 +27,15 @@ if __name__ == "__main__":
 
             print(f"Processing file: {fname}")
             pcd = ply_read.ply_read(os.path.join(input_dir, fname))    # 读取点云
-            pcd = correct_flying_pixels(pcd,80)    # 飘点修正
-            pcd_filtered = ply_read.filter_outliers(pcd)    # 离群点过滤
+            pcd_filtered = correct_flying_pixels(pcd,80,20,0.5)    # 飘点修正
             if crop:
                 pcd_without_plane = plane_segmentation(pcd_filtered)    # 平面分割，去除地面
+                main_object = dbscan_clustering(pcd_without_plane)    # DBSCAN聚类,提取主体
             else:
-                pcd_without_plane = pcd_filtered
+                main_object = pcd_filtered
                 
-            main_object = dbscan_clustering(pcd_without_plane)    # DBSCAN聚类,提取主体
-            down_main_object = main_object.voxel_down_sample(voxel_size=3)
+            down_main_object = main_object.voxel_down_sample(voxel_size=3)      # 体素下采样，减少点云数量，加快后续处理速度
+            down_main_object = filter_outliers(down_main_object, nb_neighbors=20, std_ratio=0.3)    # 离群点过滤
             down_main_object.paint_uniform_color([0, 1, 0])
 
 
@@ -41,3 +48,6 @@ if __name__ == "__main__":
 
             else:
                 print(f"No main object found")
+                
+if __name__ == "__main__":
+    main()

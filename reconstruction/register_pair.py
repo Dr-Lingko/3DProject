@@ -1,6 +1,12 @@
 import argparse
 import os
+import sys
 import open3d as o3d
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 import preprocess_point_cloud as pp
 import ransac_global_registration as gr
 import icp_registration as icpr

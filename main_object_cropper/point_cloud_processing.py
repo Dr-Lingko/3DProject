@@ -149,7 +149,7 @@ def main(config: ProcessConfig) -> None:
         )
 
     save_point_cloud(filtered, config.output_path)
-    print(f"✅ 完成：{config.output_path}")
+    print(f"完成：{config.output_path}")
     print(f"点数变化：{len(pcd.points)} -> {len(down.points)} -> {len(filtered.points)}")
 
     if config.visualize_output:

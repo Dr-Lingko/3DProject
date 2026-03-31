@@ -186,7 +186,7 @@ def compute_slice_area_perimeter(
 
 def main() -> None:
 	config = {
-		"point_cloud_path": r"E:\3DProject\D3\super_wlr.ply",
+		"point_cloud_path": r"E:\点云测量\01\点云317采集\4Perspective\registration\manual.ply",
 		"distance_tol": 2.0,
 		"min_points": 200,
 		"visualize": True,
