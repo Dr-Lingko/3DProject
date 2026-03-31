@@ -13,7 +13,10 @@ def draw_registration_result(source, target, transformation):
 
 def preprocess_point_cloud(pcd, voxel_size):
     pcd_down = pcd.voxel_down_sample(voxel_size)
+    if len(pcd_down.points) > 200:
+        pcd_down, _ = pcd_down.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
     pcd_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size*2, max_nn=30))
+    pcd_down.orient_normals_consistent_tangent_plane(30)
     fpfh = o3d.pipelines.registration.compute_fpfh_feature(
         pcd_down,
         o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size*8, max_nn=100))

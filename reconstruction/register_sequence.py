@@ -85,7 +85,13 @@ def estimate_pair_params(source_pcd, target_pcd):
     return voxel_size, ransac_dist, icp_threshold
 
 
-def register_pair_raw(source_raw, target_raw, voxel_size, ransac_dist, icp_threshold, ransac_max_iter=200000):
+def score_icp_result(icp_result, threshold):
+    threshold = max(float(threshold), 1e-6)
+    return float(icp_result.fitness) - float(icp_result.inlier_rmse) / threshold
+
+
+def register_pair_raw(source_raw, target_raw, voxel_size, ransac_dist, icp_threshold,
+                      ransac_max_iter=200000, prior_init=None):
     source_down, source_fpfh = pp.preprocess_point_cloud(source_raw, voxel_size)
     target_down, target_fpfh = pp.preprocess_point_cloud(target_raw, voxel_size)
 
@@ -103,14 +109,22 @@ def register_pair_raw(source_raw, target_raw, voxel_size, ransac_dist, icp_thres
     )
 
     voxel_sizes = [voxel_size * 2.0, voxel_size, max(voxel_size * 0.5, voxel_size * 0.25)]
-    result_icp = icpr.ICP_registration_point_to_plane_robust_multi_scale(
-        source_raw,
-        target_raw,
-        voxel_sizes,
-        result_ransac.transformation,
-    )
-
     final_threshold = max(icp_threshold, voxel_sizes[-1] * 1.5)
+    init_candidates = [result_ransac.transformation]
+    if prior_init is not None:
+        init_candidates.append(prior_init)
+
+    result_icp = None
+    for init in init_candidates:
+        candidate_icp = icpr.ICP_registration_point_to_plane_robust_multi_scale(
+            source_raw,
+            target_raw,
+            voxel_sizes,
+            init,
+        )
+        if result_icp is None or score_icp_result(candidate_icp, final_threshold) > score_icp_result(result_icp, final_threshold):
+            result_icp = candidate_icp
+
     max_rmse = final_threshold * 2.0
     return {
         "source_down": source_down,
@@ -135,6 +149,10 @@ def parse_args():
                         help="Max allowed pose-distance for loop candidates; 0 means auto")
     parser.add_argument("--max-loop-candidates", type=int, default=12,
                         help="Maximum accepted loop candidates after distance filtering")
+    parser.add_argument("--motion-max-translation", type=float, default=0.0,
+                        help="Clamp pairwise translation; 0 means auto by adaptive threshold")
+    parser.add_argument("--motion-max-rotation", type=float, default=25.0,
+                        help="Clamp pairwise rotation in degrees to avoid sudden pose jumps")
     return parser.parse_args()
 
 def load(dir):
@@ -180,6 +198,7 @@ if __name__ == "__main__":
             ransac_dist,
             icp_threshold,
             ransac_max_iter=200000,
+            prior_init=last_good_transform,
         )
         result_ransac = pair_result["result_ransac"]
         result_icp = pair_result["result_icp"]
@@ -200,6 +219,7 @@ if __name__ == "__main__":
                 ransac_dist,
                 icp_threshold,
                 ransac_max_iter=300000,
+                prior_init=last_good_transform,
             )
             result_ransac = pair_result["result_ransac"]
             result_icp = pair_result["result_icp"]
@@ -213,6 +233,12 @@ if __name__ == "__main__":
         print(f"ICP fitness={result_icp.fitness:.3f}, rmse={result_icp.inlier_rmse:.3f}")
 
         global_opt_distance = max(global_opt_distance, final_threshold)
+        motion_max_translation = args.motion_max_translation if args.motion_max_translation > 0.0 else final_threshold * 2.0
+        result_icp_transformation = clamp_relative_transform(
+            result_icp.transformation,
+            max_translation=motion_max_translation,
+            max_rotation_deg=args.motion_max_rotation,
+        )
 
         if result_icp.fitness < min_fitness or result_icp.inlier_rmse > max_rmse:
             low_quality_streak += 1
@@ -223,17 +249,22 @@ if __name__ == "__main__":
             )
             if retry_icp.fitness >= result_icp.fitness:
                 result_icp = retry_icp
+                result_icp_transformation = clamp_relative_transform(
+                    result_icp.transformation,
+                    max_translation=motion_max_translation,
+                    max_rotation_deg=args.motion_max_rotation,
+                )
 
             print(f"局部重配准后 ICP fitness={result_icp.fitness:.3f}, rmse={result_icp.inlier_rmse:.3f}")
             if result_icp.fitness >= min_fitness and result_icp.inlier_rmse <= max_rmse:
                 print("局部重配准已达标，按正常相邻边写入位姿图。")
                 information_icp = o3d.pipelines.registration.get_information_matrix_from_point_clouds(
-                    source_down, target_down, final_threshold, result_icp.transformation
+                    source_down, target_down, final_threshold, result_icp_transformation
                 )
-                last_good_transform = result_icp.transformation
-                prev_applied_transform = result_icp.transformation
+                last_good_transform = result_icp_transformation
+                prev_applied_transform = result_icp_transformation
                 low_quality_streak = 0
-                odometry = np.dot(result_icp.transformation, odometry)
+                odometry = np.dot(result_icp_transformation, odometry)
                 pose_graph.nodes.append(
                     o3d.pipelines.registration.PoseGraphNode(
                         np.linalg.inv(odometry)
@@ -242,7 +273,7 @@ if __name__ == "__main__":
                 pose_graph.edges.append(
                     o3d.pipelines.registration.PoseGraphEdge(i,
                                                              i + 1,
-                                                             result_icp.transformation,
+                                                             result_icp_transformation,
                                                              information_icp,
                                                              uncertain=False))
                 continue
@@ -303,11 +334,11 @@ if __name__ == "__main__":
 
         low_quality_streak = 0
         information_icp = o3d.pipelines.registration.get_information_matrix_from_point_clouds(
-            source_down, target_down, final_threshold, result_icp.transformation
+            source_down, target_down, final_threshold, result_icp_transformation
         )
-        last_good_transform = result_icp.transformation
-        prev_applied_transform = result_icp.transformation
-        odometry = np.dot(result_icp.transformation, odometry)
+        last_good_transform = result_icp_transformation
+        prev_applied_transform = result_icp_transformation
+        odometry = np.dot(result_icp_transformation, odometry)
         pose_graph.nodes.append(
             o3d.pipelines.registration.PoseGraphNode(
                 np.linalg.inv(odometry)
@@ -316,7 +347,7 @@ if __name__ == "__main__":
         pose_graph.edges.append(
             o3d.pipelines.registration.PoseGraphEdge(i,
                                                      i + 1,
-                                                     result_icp.transformation,
+                                                     result_icp_transformation,
                                                      information_icp,
                                                      uncertain=False))
 
@@ -333,6 +364,10 @@ if __name__ == "__main__":
 
         print(f"尝试闭环配准: 第 {loop_src + 1} 个点云 -> 第 {loop_tgt + 1} 个点云")
         voxel_size, ransac_dist, icp_threshold = estimate_pair_params(pcds[loop_src], pcds[loop_tgt])
+        predicted_loop = relative_transform(
+            pose_graph.nodes[loop_src].pose,
+            pose_graph.nodes[loop_tgt].pose,
+        )
         pair_result = register_pair_raw(
             pcds[loop_src],
             pcds[loop_tgt],
@@ -340,6 +375,7 @@ if __name__ == "__main__":
             ransac_dist,
             icp_threshold,
             ransac_max_iter=300000,
+            prior_init=predicted_loop,
         )
         result_icp = pair_result["result_icp"]
         source_down = pair_result["source_down"]
@@ -352,10 +388,6 @@ if __name__ == "__main__":
             print("闭环质量不足，未加入闭环边。")
             return nonlocal_global
 
-        predicted_loop = relative_transform(
-            pose_graph.nodes[loop_src].pose,
-            pose_graph.nodes[loop_tgt].pose,
-        )
         loop_delta = np.linalg.inv(predicted_loop) @ result_icp.transformation
         trans_err = np.linalg.norm(loop_delta[:3, 3])
         rot_err = rotation_error_deg(loop_delta)
